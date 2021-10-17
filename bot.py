@@ -21,7 +21,7 @@ bot_token = YOUR_BOT_TOKEN
 
 def embedFunction(title, description, embedDict, img=None):
     embedVar = discord.Embed(title = title, description = description, color = 0xbbb2e9)
-    embedVar.set_thumbnail(url = img)
+    if img != None: embedVar.set_thumbnail(url = img)
     for key in embedDict: embedVar.add_field(name = key, value = embedDict[key][0], inline = embedDict[key][1])
     return embedVar
 
@@ -53,7 +53,7 @@ async def marekhelp(ctx):
                  "List of Clash of Clans commands:":["```/cochelp```", False],
                  "List of Spotify commands:":["```/spotifyhelp```", False],
                  "System info of bot's host machine:":["```/system```", False],
-    embedVar = embedFunction("Marek commands", "Nein du Lappen, ich helf' dir nicht.", embedDict, _storage_.marek_img)
+    embedVar = embedFunction("Marek commands", "Nein du Lappen, ich helf' dir nicht.", embedDict)
     await ctx.channel.send(embed = embedVar)
     log(ctx, "marekhelp")
 
@@ -75,7 +75,7 @@ async def spotifyhelp(ctx):
     embedDict = {"Skip current track:":["```/spotify skip```", False],
                  "Pause current track:":["```/spotify pause```", False],
                  "Play current track:":["```/spotify play```", False],
-    embedVar = embedFunction("Spotify commands", "Note: These commands can only be used by specific users.", embedDict, _storage_.spotify_img)
+    embedVar = embedFunction("Spotify commands", "Note: These commands can only be used by specific users.", embedDict)
     await ctx.channel.send(embed = embedVar)
     log(ctx, "spotifyhelp")
 
