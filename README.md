@@ -8,7 +8,7 @@ Multi purpose Discord bot.<br>
 # General commands:<br>
 - ```/marekhelp``` list of available commands<br>
 - ```/marek``` random Marek quote
-- ```/jkg``` random jkg quote
+- ```/jkg``` random JKG quote
 - ```/system``` info on bot's host machine
 <br>
 
@@ -28,7 +28,7 @@ Multi purpose Discord bot.<br>
 
 # Other:<br>
 - Bot responds to keywords such as AmongUs and Amogus
-- Bot deletes umwanted phrases in the discord server's chat
+- Bot deletes unwanted phrases in the discord server's chat
 <br>
 
 # Things to change before running the bot:<br>
