@@ -19,8 +19,8 @@ import _supercell_
 intents = discord.Intents.default()
 intents.members = True
 
-try: cred_obj = firebase_admin.credentials.Certificate("YOUR_LOCAL_DIRECTORY/Firebase.jso")
-except: cred_obj = firebase_admin.credentials.Certificate("YOUR_LOCAL_DIRECTORY/Firebase.json")
+try: cred_obj = firebase_admin.credentials.Certificate("TODO_YOUR_LOCAL_DIRECTORY/Firebase.jso")
+except: cred_obj = firebase_admin.credentials.Certificate("TODO_YOUR_LOCAL_DIRECTORY/Firebase.json")
 default_app = firebase_admin.initialize_app(cred_obj, {
 	'databaseURL':"https://dauntlessfirebase-default-rtdb.firebaseio.com/"
 	})
@@ -69,10 +69,10 @@ async def gcp(ctx):
         ls = []
         embedVar = discord.Embed(title = "Google Cloud logs", description = "20 most recent events", color = 0xbbb2e9)
         embedVar.set_thumbnail(url = stor.gcp_img)
-        for line in open("YOUR_LOGFILE.txt", "r"):
+        for line in open("TODO_YOUR_LOGFILE.txt", "r"):
             if not line.startswith("!"):
                 ls.append(line)
-        open("YOUR_LOGFILE.txt", "r").close()
+        open("TODO_YOUR_LOGFILE.txt", "r").close()
         ls = ls[::-1]
         if len(ls) < 20: end_loop = len(ls)
         else: end_loop = 20
@@ -130,7 +130,7 @@ async def servers(ctx):
 # /profile
 @bot.command(name = 'profile', aliases = ['Profile', 'PROFILE', 'pROFILE', 'Profil', 'profil', 'Userprofile', 'userprofile', 'User', 'user'])
 async def profile(ctx, *args):
-    refUsers = db.reference("YOUR_FIREBASE_DIRECTORY")
+    refUsers = db.reference("TODO_YOUR_FIREBASE_DIRECTORY")
     if not args: # args empty
         func.log(ctx, "profile")
         try:
@@ -202,7 +202,7 @@ async def profile(ctx, *args):
 # /coc
 @bot.command()
 async def coc(ctx, *args):
-    refUsers = db.reference("YOUR_FIREBASE_DIRECTORY")
+    refUsers = db.reference("TODO_YOUR_FIREBASE_DIRECTORY")
     if not args:
         func.log(ctx, "coc")
         try:
@@ -330,7 +330,7 @@ async def spotify(ctx, cmd, *args):
 # /np
 @bot.command(name = 'np', aliases = ['playing', 'nowplaying'])
 async def np(ctx):
-    refUsers = db.reference("YOUR_FIREBASE_DIRECTORY")
+    refUsers = db.reference("TODO_YOUR_FIREBASE_DIRECTORY")
     try:
         for key, value in refUsers.get().items():
             if value["ID"] == str(ctx.author.id) and value["lastfm"] != "None":
