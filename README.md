@@ -6,40 +6,57 @@ Multi purpose Discord bot.<br>
 <hr>
 
 # General commands:<br>
-- ```/marekhelp``` list of available commands<br>
-- ```/marek``` random Marek quote
-- ```/jkg``` random JKG quote
-- ```/system``` info on bot's host machine
+- ```/marekhelp``` List of available commands<br>
+- ```/jkg``` Random JKG quote
+- ```/jkg [search query]``` Searches for specific JKG quote
+- ```/system``` Info on bot's host machine
+- ```/GoogleCloud``` Google Cloud Platform logs
+- ```/feedback``` Sends bot admin a dm
+- ```/np``` Now playing feature using last.fm
+- ```/GeoGuesser``` Guess the capital of a given country
+- ```/coc help``` List of Clash of Clans commands
+- ```/spotify help``` List of Spotify commands
+- ```/profile help``` List of user profile commands
 <br>
 
 # Spotify commands:<br>
-- ```/spotifyhelp``` list of available Spotify commands
-- ```/spotify play``` play/pause current song
-- ```/spotify pause``` play/pause current song (play and pause are interchangeable)
-- ```/spotify skip``` skip current song
+- ```/spotify help``` List of Spotify commands
+- ```/spotify play``` Play/pause current song
+- ```/spotify pause``` Play/pause current song (play and pause are interchangeable)
+- ```/spotify skip``` Skip current song
+- ```/spotify collage [side length] [time period]``` Top songs collage for signed in user
+- ```/spotify cover [Spotify song URL or ID]``` Get full res album cover of given spotify song url
 <br>
 
 # Clash of Clans commands:<br>
-- ```/cochelp``` list of available Clash of Clans commands
-- ```/coc members``` list of clan members + roles + trophies
-- ```/coc cw``` info on clan's current war
-- ```/coc attacks``` list of clan war members and their completed attacks
+- ```/coc help``` List of available Clash of Clans commands
+- ```/coc members``` List of clan members + roles + trophies
+- ```/coc cw``` Info on clan's current war
+- ```/coc attacks``` List of clan war members and their completed attacks
+- ```/coc add [coc village tag]``` Adds village to profile
+<br>
+
+# User profile commands:<br>
+- ```/profile help``` List of user profile commands
+- ```/profile lastfm [last.fm name]``` Add last.fm user to Discord profile
+- ```/profile geo``` See your GeoGuesser stats
+- ```/profile delete data``` Deletes collected profile data for user
 <br>
 
 # Other:<br>
-- Bot responds to keywords such as AmongUs and Amogus
-- Bot deletes unwanted phrases in the discord server's chat
+- Bot responds to keywords such as AmongUs, Amogus or Charlie (It's obviously spelled Charli without the E.)
+- Bot deletes unwanted phrases in the server's chat
 <br>
 
-# Things to change before running the bot:<br>
-- *admin_id*, *bot_id* and *bot_token* in [bot.py](bot.py)
-- *client_id*, *client_secret*, *redirect_uri* and *keywords* in [_functions_.py](_functions_.py)
-- *Insults*, *Quotes* and *LINK_TO_IMGs* in [_storage_.py](_storage_.py)
-- *YOUR_CLASH_OF_CLANS_API_TOKEN* in [_supercell_.py](_supercell_.py)
+# Things to do before running the bot:<br>
+- Change all TODO objects
+- pip install used libraries
+- Spotify, last.fm, imagga and Firebase accounts required
 <br>
 
 # Screenshots:<br>
-![coc](https://github.com/xelemir/MarekBot/blob/main/images/coc1.png)<br>
-![spotify](https://github.com/xelemir/MarekBot/blob/main/images/spotify1.png)<br>
-![jkg](https://github.com/xelemir/MarekBot/blob/main/images/jkg.png)<br>
-![system](https://github.com/xelemir/MarekBot/blob/main/images/system.png)
+![bot1](https://github.com/xelemir/MarekBot/blob/main/images/bot1.png)<br>
+![bot2](https://github.com/xelemir/MarekBot/blob/main/images/bot2.png)<br>
+![bot3](https://github.com/xelemir/MarekBot/blob/main/images/bot3.png)<br>
+![bot4](https://github.com/xelemir/MarekBot/blob/main/images/bot4.png)
+![bot5](https://github.com/xelemir/MarekBot/blob/main/images/bot5.png)
