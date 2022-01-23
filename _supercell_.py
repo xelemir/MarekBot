@@ -2,7 +2,7 @@ import requests
 
 headers_coc = {
     'Accept': 'application.json',
-    'authorization': 'Bearer YOUR_CLASH_OF_CLANS_API_TOKEN'
+    'authorization': 'Bearer TODO_YOUR_CLASH_OF_CLANS_API_TOKEN'
 }
 
 def get_json(url):
