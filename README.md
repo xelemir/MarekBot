@@ -1,7 +1,8 @@
 # MarekBot
 
 <br>
-Multi purpose Discord bot.<br>
+Discord bot with Spotify, Clash of Clans, Last.fm and Google Firebase integration.<br>
+The core feature is a random quote generator with e.g. school quotes.
 <br>
 <hr>
 
@@ -51,7 +52,7 @@ Multi purpose Discord bot.<br>
 # Things to do before running the bot:<br>
 - Change all TODO objects
 - pip install used libraries
-- Spotify, last.fm, imagga and Firebase accounts required
+- Spotify API, last.fm API, imagga API, Clash of Clans API and Google Firebase accounts required
 <br>
 
 # Screenshots:<br>
