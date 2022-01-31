@@ -22,7 +22,7 @@ intents.members = True
 try: cred_obj = firebase_admin.credentials.Certificate("TODO_YOUR_LOCAL_DIRECTORY/Firebase.jso")
 except: cred_obj = firebase_admin.credentials.Certificate("TODO_YOUR_LOCAL_DIRECTORY/Firebase.json")
 default_app = firebase_admin.initialize_app(cred_obj, {
-	'databaseURL':"https://dauntlessfirebase-default-rtdb.firebaseio.com/"
+	'databaseURL':"TODO_DATABASE_URL"
 	})
 
 bot = commands.Bot(command_prefix="/", intents=intents)
