@@ -2,7 +2,7 @@
 
 <br>
 Discord bot with Spotify, Clash of Clans, Last.fm and Google Firebase integration.<br>
-The core feature is a random quote generator with e.g. school quotes.
+The core feature is a random quote generator with e.g. school quotes.<br>
 <br>
 <hr>
 
@@ -11,13 +11,14 @@ The core feature is a random quote generator with e.g. school quotes.
 - ```/jkg``` Random JKG quote
 - ```/jkg [search query]``` Searches for specific JKG quote
 - ```/system``` Info on bot's host machine
-- ```/GoogleCloud``` Google Cloud Platform logs
+- ```/GoogleCloud``` See logfile entries (file lies on gcp instance for me)
 - ```/feedback``` Sends bot admin a dm
 - ```/np``` Now playing feature using last.fm
 - ```/GeoGuesser``` Guess the capital of a given country
 - ```/coc help``` List of Clash of Clans commands
 - ```/spotify help``` List of Spotify commands
 - ```/profile help``` List of user profile commands
+- ```/coc help``` List of available Clash of Clans commands
 <br>
 
 # Spotify commands:<br>
@@ -37,7 +38,7 @@ The core feature is a random quote generator with e.g. school quotes.
 - ```/coc add [coc village tag]``` Adds village to profile
 <br>
 
-# User profile commands:<br>
+# User profile commands (Note: Google Firebase "Realtime Database" is used to link users' discord ids with other things):<br>
 - ```/profile help``` List of user profile commands
 - ```/profile lastfm [last.fm name]``` Add last.fm user to Discord profile
 - ```/profile geo``` See your GeoGuesser stats
