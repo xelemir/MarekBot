@@ -35,7 +35,7 @@ The core feature is a random quote generator with e.g. school quotes.<br>
 - ```/coc members``` List of clan members + roles + trophies
 - ```/coc cw``` Info on clan's current war
 - ```/coc attacks``` List of clan war members and their completed attacks
-- ```/coc add [coc village tag]``` Adds village to profile
+- ```/coc add [coc village tag]``` Adds village to profile (Google Firebase)
 <br>
 
 # User profile commands:<br>
@@ -47,7 +47,7 @@ Note: Google Firebase "Realtime Database" is used to link users' discord ids wit
 <br>
 
 # Other:<br>
-- Bot responds to keywords such as AmongUs, Amogus or Charlie (It's obviously spelled Charli without the E.)
+- Bot responds to keywords such as AmongUs, Amogus or Charlie (It's obviously spelled Charli without the E)
 - Bot deletes unwanted phrases in the server's chat
 <br>
 
