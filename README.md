@@ -39,7 +39,7 @@ The core feature is a random quote generator with e.g. school quotes.<br>
 <br>
 
 # User profile commands:<br>
-Note: Google Firebase "Realtime Database" is used to link users' discord ids with other things
+Note: Google Firebase "Realtime Database" is used to link users' discord ids with other apps like last.fm username or coc village tag
 - ```/profile help``` List of user profile commands
 - ```/profile lastfm [last.fm name]``` Add last.fm user to Discord profile
 - ```/profile geo``` See your GeoGuesser stats
