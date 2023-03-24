@@ -1,434 +1,542 @@
-import _storage_ as stor
+import asyncio
+import datetime
+import os
+import random
+import socket
+import sys
+import time
+
+import cpuinfo
+import discord
+import interactions
+import psutil
+import pylast
+import requests
+import spotipy
+from discord.ext import commands, tasks
+from PIL import Image
+from spotipy.oauth2 import SpotifyOAuth
+
 import _functions_ as func
 import creds
-import discord
-from discord.ext import commands
-from discord.ext import tasks
-import asyncio
-import cpuinfo
-import random
-import psutil
-import socket
-import datetime
-import time
-import pylast
-import os
-import firebase_admin
-from firebase_admin import db
-import _supercell_
+import storage
+
+# Create spotify object
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=creds.client_id_spotify,
+                                               client_secret=creds.client_secret_spotify,
+                                               redirect_uri=creds.redirect_uri_spotify,
+                                               scope="user-read-playback-state, user-read-private, playlist-modify-public, ugc-image-upload, playlist-modify-private, user-top-read, user-library-modify, user-library-read, user-read-currently-playing, app-remote-control, streaming",
+                                               cache_path=".spotipyoauthcache"))
+
+# Create last.fm object
+network = pylast.LastFMNetwork(
+    api_key=creds.api_key_lastfm,
+    api_secret=creds.api_secret_lastfm,
+    username=creds.username_lastfm,
+    password_hash=creds.password_hash_lastfm)
+
+# Intents for discord.py
 intents = discord.Intents.default()
+intents.messages = True
 intents.members = True
+intents.reactions = True
+intents.guilds = True
 
-try: cred_obj = firebase_admin.credentials.Certificate("TODO_YOUR_LOCAL_DIRECTORY/Firebase.jso")
-except: cred_obj = firebase_admin.credentials.Certificate("TODO_YOUR_LOCAL_DIRECTORY/Firebase.json")
-default_app = firebase_admin.initialize_app(cred_obj, {
-	'databaseURL':"TODO_DATABASE_URL"
-	})
+# Create discord interactions object
+client = interactions.Client(
+    token=creds.bot_token, intents=interactions.Intents.DEFAULT | interactions.Intents.GUILD_MESSAGE_CONTENT)
 
-bot = commands.Bot(command_prefix="/", intents=intents)
-client = discord.Client()
+# Create discord.py object
+dpy = commands.Bot(command_prefix="/", intents=intents, help_command=None)
 
-# user id
-admin_id = creds.admin_id
-bot_id = creds.bot_id
-bot_token = creds.bot_token
-
-# Connected to bot
-@bot.event
+# Connect to bot and display servers joined
+@dpy.event
 async def on_ready():
     print("Bot connected.")
-    servers = []
-    for guild in bot.guilds:
-        servers.append(guild.name)
-    print(servers)
+    servers_joined = []
+    for guild in dpy.guilds:
+        servers_joined.append(guild.name)
+    print(servers_joined)
+    update_presence.start()
 
-# /marekhelp
-@bot.command()
-async def marekhelp(ctx):
-    embedVar = func.embedFunction("Marek commands", "Nein du Lappen, ich helf' dir nicht.", stor.cmds_marek, stor.marek_img)
-    await ctx.channel.send(embed = embedVar)
-    func.log(ctx, "marekhelp")
 
-# /system
-@bot.command(name = 'system', aliases = ['sys', 'Sys', 'System'])
-async def system(ctx):
+# Display Spotify activity as bots status
+@tasks.loop(seconds=60)
+async def update_presence():
+    # Try to get current song from Spotify and display it as bots status
+    try:
+        track = sp.current_user_playing_track()
+        await dpy.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=f'{track["item"]["name"]} by {track["item"]["artists"][0]["name"]}'))
+    # If no song is playing, display "Charli XCX" as bots status
+    except:
+        await dpy.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="Charli XCX"))
+    await asyncio.sleep(60)
+
+
+# /help command to get a list of all commands
+@client.command(name="help", description="Get help with the bot's commands.")
+async def help(ctx):
+    embed_var = func.get_embed(
+        f"{dpy.user.name} Commands", "Here's a list of my commands. [] signalize command options.", storage.cmds_marek, storage.marek_img)
+    await ctx.send(embeds=embed_var)
+    func.log(ctx, f"/help", "low")
+
+
+# /system command to get info on the bot's host computer (Running on GCP or locally? CPU? Uptime?)
+@client.command(name="system", description="Get info on the bot's host computer.")
+async def system(ctx: interactions.CommandContext):
     host = socket.gethostname()
-    if host == "dauntless-1": local_or_cloud = "on Google Cloud Platform server"
-    else: local_or_cloud = "locally"
+    if host == "dauntless-1":
+        local_or_cloud = "on Google Cloud Platform server instance"
+    else:
+        local_or_cloud = "locally"
     sys_dict = {"Machine:": [f"```Running {local_or_cloud} on {host}```", False],
                 "CPU:": [f"```{cpuinfo.get_cpu_info()['brand_raw']}```", False],
-                "Uptime:": [f"```{str(datetime.timedelta(seconds = time.time() - psutil.boot_time()))}```", False]}
-    embedVar = func.embedFunction("System info", " ", sys_dict)
-    await ctx.channel.send(embed = embedVar)
-    func.log(ctx, "system")
+                "Uptime:": [f"```{str(datetime.timedelta(seconds=time.time() - psutil.boot_time()))}```", False]}
+    embed_var = func.get_embed("System info", " ", sys_dict)
+    await ctx.send(embeds=embed_var)
+    func.log(ctx, f"/system", "medium")
 
-# /Google Cloud Platform
-@bot.command(name = 'gcp', aliases = ['GCP', 'googlecloud', 'cloud', 'Cloud', 'GoogleCloud', 'cloud.google'])
-async def gcp(ctx):
-    if ctx.author.id == admin_id:
-        ls = []
-        embedVar = discord.Embed(title = "Google Cloud logs", description = "20 most recent events", color = 0xbbb2e9)
-        embedVar.set_thumbnail(url = stor.gcp_img)
-        for line in open("TODO_YOUR_LOGFILE.txt", "r"):
-            if not line.startswith("!"):
-                ls.append(line)
-        open("TODO_YOUR_LOGFILE.txt", "r").close()
-        ls = ls[::-1]
-        if len(ls) < 20: end_loop = len(ls)
-        else: end_loop = 20
-        for i,v in enumerate(ls):
-            embedVar.add_field(name = i, value = f"```{v}```", inline = False)
-            if i >= end_loop-1: break
-        await ctx.channel.send(embed = embedVar)
+# /logs command to get a list of all commands that were executed on the bot (Admin only)
+@client.command(name="logs", description="See 21 most recent log entries from this bot's MySQL database (Admin only).")
+async def logs(ctx: interactions.CommandContext):
+    if ctx.user.id in creds.admin_ids:
+        resp = func.readSQL(
+            """SELECT author_name, command, created_at FROM discord_logs""")[::-1][:21]
+        if len(resp) > 0:
+            embed_var = interactions.Embed(
+                title=f"{dpy.user.name} Logs", description=" ", color=0xbbb2e9)
+            for log in resp:
+                embed_var.add_field(
+                    name=str(log[2]), value=f"```{log[1]}``` used by {log[0]}\n", inline=True)
+            await ctx.send(embeds=embed_var)
+            func.log(ctx, f"/logs", "medium")
+    else:
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback."))
+        func.log(ctx, f"/logs DENIED permission missing", "high")
 
-    else:
-        embedVar = func.embedFunction("You do not have the permission to use this command.", "Your attempt was logged.", img=stor.locked_img, footer=func.get_time("%d.%m.%Y %H:%M %Z"))
-        await ctx.channel.send(embed = embedVar)
-        func.log(ctx, "gcp, access denied")
+# /feedback command to send a message to the bot's developer
+@client.command(name="feedback", description="Contact this bot's developer.")
+@interactions.option()
+async def feedback(ctx: interactions.CommandContext, message: str):
+    channel = await dpy.fetch_channel(str(creds.admin_channel))
+    embed_var = func.get_embed("Feedback", f"Message by {ctx.user} on {ctx.guild}", {"Content:": [f"```{message}```", True], f"Reply {ctx.user}:": [
+                               f"```/reply {ctx.channel_id}```", False]}, footer=f"{ctx.user} ({ctx.user.id}) in #{ctx.channel} ({ctx.channel_id}) on {ctx.guild}.", dpy_embed=True)
+    embed_var.set_thumbnail(url=ctx.user.avatar_url)
+    await channel.send(embed=embed_var)
+    await ctx.send("Your message has been delivered. \N{BALLOT BOX WITH CHECK}")
+    func.log(ctx, f"/feedback {message}", "medium")
 
-# /Feedback
-@bot.command()
-async def feedback(ctx, *args):
-    if not args:
-        embedVar = func.embedFunction("Feedback", " ", {"Send message": [f"To submit your feedback or report an issue to this bot's developer type:```/feedback <your message>```", True]})
-        await ctx.channel.send(embed = embedVar)
-    else:
-        args = ' '.join(args)
-        guild = await bot.fetch_guild(str(creds.trusted_servers[0]))
-        me = await guild.fetch_member(str(creds.admin_id))
-        channel = await me.create_dm()
-        await channel.send(f"{ctx.author} ({ctx.author.id}) in {ctx.channel} ({ctx.channel.id}) on {ctx.guild} said:\n**{args}**\n```/reply {ctx.author.id} {ctx.channel.id} {func.get_time('%d.%m.%Y_%H:%M_%Z')}```")
-        await ctx.channel.send("Message has been delivered.")
-    func.log(ctx, "feedback")
 
-# /reply (part of feedback)
-@bot.command()
-async def reply(ctx, author, channelid, time, *args):
-    if ctx.author.id == creds.admin_id:
-        args = ' '.join(args)
-        channel = await bot.fetch_channel(str(channelid))
-        await channel.send(f"Answer to your message ({time}) to this bot's developer:\n**{args}**\nTo answer type:```/feedback <your message>```")
-        await ctx.channel.send("Message has been delivered.")
+# /reply (part of feedback) command to reply to a /feedback ticket (Admin only)
+@client.command(name="reply", description="Reply to a /feedback ticket (Admin only).")
+@interactions.option()
+@interactions.option()
+async def reply(ctx: interactions.CommandContext, channel_id: str, message: str):
+    if ctx.user.id in creds.admin_ids:
+        channel = await dpy.fetch_channel(str(channel_id))
+        guild = await dpy.fetch_guild(int(creds.trusted_servers[0]))
+        support_user = await guild.fetch_member(str(creds.admin_ids[0]))
+        embed_var = func.get_embed("Answer to your feedback request", f"Message answered by {support_user}", {"Content:": [
+                                   f"```{message}```", True], f"Reply {support_user}:": [f"```/feedback <your message>```", False]}, dpy_embed=True)
+        await channel.send(embed=embed_var)
+        await ctx.send("Your message has been delivered. \N{BALLOT BOX WITH CHECK}")
+        func.log(ctx, f"/reply {channel_id} {message}", "medium")
     else:
-        embedVar = func.embedFunction("You do not have the permission to use this command.", "Your attempt was logged.", img=stor.locked_img, footer=func.get_time("%d.%m.%Y %H:%M %Z"))
-        await ctx.channel.send(embed = embedVar)
-        func.log(ctx, "reply, access denied") 
-    
-# /servers
-@bot.command()
-async def servers(ctx):
-    if ctx.author.id == creds.admin_id:
-        servers = []
-        for guild in bot.guilds:
-            servers.append(guild.name)
-        await ctx.channel.send(servers)
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback."))
+        func.log(
+            ctx, f"/reply {channel_id} {message} DENIED permission missing", "high")
+
+# /lastfm base commnd
+@client.command()
+async def lastfm(ctx: interactions.CommandContext):
+    """Base command for /lastfm"""
+    pass
+
+# /lastfm add command to connect your last.fm account with your Discord profile
+@lastfm.subcommand(name="add", description="Connect your last.fm account with your Discord profile.")
+@interactions.option(name="username")
+async def add(ctx: interactions.CommandContext, username: str):
+    msg = await ctx.send(f"Trying to find {username} on last.fm...")
+    try:
+        network.get_user(username).get_now_playing()
+        func.log(ctx, f"/lastfm add {username}", "medium")
+        func.writeSQL(
+            f"""UPDATE discord_users SET lastfm = "{username}" WHERE id='{ctx.user.id}'""")
+        await msg.edit(f"{username} found.")
+        await msg.edit(embeds=func.get_embed("\N{MUSICAL NOTE}  Last.fm connected  \N{MUSICAL NOTE}", f"{ctx.user}, your last.fm account {username} has been connected to your Discord profile.", color=0xbb0001))
+    except:
+        await msg.edit(f"Error")
+        await msg.edit(embeds=func.get_embed("Last.fm user not found", f'Unfortunately, no last.fm account named "{username}" could be found. Please check for spelling and try again.', color=0xbb0001))
+        func.log(
+            ctx, f"/lastfm add {username} DENIED username not found", "medium")
+
+# /lastfm disconnect command to disconnect your last.fm account from your Discord profile
+@lastfm.subcommand(name="disconnect", description="Disconnect your last.fm username from your Discord profile.")
+async def disconnect(ctx: interactions.CommandContext):
+    resp = func.readSQL(
+        f"""SELECT lastfm FROM discord_users WHERE id='{ctx.user.id}'""")
+    if resp[0][0] != "None":
+        func.writeSQL(
+            f"""UPDATE discord_users SET lastfm = "None" WHERE id='{ctx.user.id}'""")
+        await ctx.send(embeds=func.get_embed("Last.fm disconnected", f'Your last.fm account "{resp[0][0]}" has been disconnected from your Discord profile.', color=0xbb0001))
+        func.log(ctx, f"/lastfm disconnect", "medium")
     else:
-        embedVar = func.embedFunction("You do not have the permission to use this command.", "Your attempt was logged.", img=stor.locked_img, footer=func.get_time("%d.%m.%Y %H:%M %Z"))
-        await ctx.channel.send(embed = embedVar)
-        func.log(ctx, "servers, access denied")
-    
-# /profile
-@bot.command(name = 'profile', aliases = ['Profile', 'PROFILE', 'pROFILE', 'Profil', 'profil', 'Userprofile', 'userprofile', 'User', 'user'])
-async def profile(ctx, *args):
-    refUsers = db.reference("TODO_YOUR_FIREBASE_DIRECTORY")
-    if not args: # args empty
-        func.log(ctx, "profile")
+        await ctx.send(embeds=func.get_embed("No last.fm account added", "There seems to be no last.fm account associated with your Discord profile. Try '/lastfm add' to add your last.fm account.", color=0xbb0001))
+        func.log(ctx, f"/lastfm disconnect DENIED no username added", "low")
+
+# /np command to display your current music streaming activity on last.fm and let other users rate it
+@client.command(name="np", description="Display streaming activity on Spotify. (Or elsewhere - last.fm must be connected).")
+async def np(ctx: interactions.CommandContext):
+    resp = func.readSQL(
+        f"""SELECT lastfm FROM discord_users WHERE id='{ctx.user.id}'""")
+    if resp[0][0] != "None":
         try:
-            for key, value in refUsers.get().items():
-                if value["ID"] == str(ctx.author.id):
-                    embedVar = discord.Embed(title="User profile", description=f"Collected data for {ctx.author}", color = 0xbbb2e9)
-                    embedVar.set_thumbnail(url=ctx.author.avatar_url)
-                    for child_key, child_value in value.items():
-                        embedVar.add_field(name = child_key, value = f'```{child_value}```', inline = False)
-                    embedVar.add_field(name = "Note:", value = "If you wish to delete your profile type: ```/user delete data```", inline = False)
-                    await ctx.channel.send(embed = embedVar)
-                    return
-            embedVar = func.embedFunction("Profile console", " ", {f"{str(ctx.author)}": ["Error: Couldn't fetch your profile. Please try again.", True]})
-            await ctx.channel.send(embed = embedVar)
-        except:
-            embedVar = func.embedFunction("Profile console", " ", {f"{str(ctx.author)}": ["Error: Couldn't fetch your profile. Please try again.", True]})
-            await ctx.channel.send(embed = embedVar)
+            msg = await ctx.send(embeds=func.get_embed("Now playing", f'Getting current music streaming activity for last.fm user "{resp[0][0]}"...', color=0x1DB954))
+            user = network.get_user(resp[0][0])
+            np = str(user.get_now_playing()).split(" - ")
+            if len(np) > 2:
+                np = [np[0], " - ".join(np[1:])]
+            if np == ['None']:
+                recent = user.get_recent_tracks(1)[0]
+                np = str(recent.track).split(" - ")
+                if len(np) > 2:
+                    np = [np[0], " - ".join(np[1:])]
+                np.append(recent.album)
 
-    else: # args not empty
-
-        if ' '.join(args) == "delete data":
-            users = refUsers.get()
-            for key, value in users.items():
-                if(value["Name"] == str(ctx.author)):
-                    refUsers.child(key).set({})
-                    embedVar = func.embedFunction("Profile console", " ", {f"{str(ctx.author)}": ["Your profile data has been deleted.", True]})
-                    await ctx.channel.send(embed = embedVar)
-            func.log(ctx, "profile delete data")
-
-        elif args[0] == "geo":
-            users = refUsers.get()
-            for key, value in users.items():
-                if value["Name"] == str(ctx.author):
-                    embedVarGeo = discord.Embed(title = "Geo Guesser Stats", description = value["Name"], color = 0xbbb2e9)
-                    embedVarGeo.add_field(name = "Correct answers:", value = value["Geo won"], inline = True)
-                    embedVarGeo.add_field(name = "Wrong answers:", value = value["Geo lost"], inline = True)
-                    embedVarGeo.add_field(name = "Your win rate:", value = str(int(value["Geo won"]/(value["Geo won"]+value["Geo lost"])*100))+"%", inline = True)
-                    await ctx.channel.send(embed = embedVarGeo)
-            func.log(ctx, "profile geo")
-        elif args[0] == "help":
-            embedVar = func.embedFunction("Profile Commands", " ", stor.cmds_profile, ctx.author.avatar_url)
-            await ctx.channel.send(embed = embedVar)
-            func.log(ctx, "profile help")
-            
-        elif args[0] == "lastfm":
-            func.log(ctx, "profile last.fm")
-            refUsers = db.reference("YOUR_FIREBASE_DIRECTORY")
-            network = pylast.LastFMNetwork(
-                api_key=creds.api_key_lastfm,
-                api_secret=creds.api_secret_lastfm,
-                username=creds.username_lastfm,
-                password_hash=creds.password_hash_lastfm)
+            q = sp.search(f"{np[1]} {np[0]}", limit=5,
+                          offset=0, type='track', market=None)
+            for i in q["tracks"]["items"]:
+                if i["album"]["album_type"] != "compilation" and i["name"].casefold() == np[1].casefold() and i["artists"][0]["name"].casefold() == np[0].casefold():
+                    url = i["album"]["images"][0]["url"]
+                    album = i["album"]["name"]
+                    album_url = i["album"]['external_urls']['spotify']
+                    break
             try:
-                user_name = args[1]
-                network.get_user(user_name).get_now_playing()
-                for key, value in refUsers.get().items():
-                        if value["ID"] == str(ctx.author.id):
-                            refUsers.child(key).update({"lastfm": user_name})
-                embedVar = func.embedFunction("last.fm console", " ", {f"{str(ctx.author)}": [f"Your last.fm account {str(user_name)} has been added to your Discord profile.", True]})
-                await ctx.channel.send(embed = embedVar)
+                _ = album
             except:
-                embedVar = func.embedFunction("last.fm console", " ", {f"{str(ctx.author)}": ["Invalid lastfm account name. No profile was added to your Discord profile.", True]})
-                await ctx.channel.send(embed = embedVar)
-
-        else:
-            embedVar = func.embedFunction("Profile Error", " ", {"Command not found": [f"{' '.join(args)} isn't one of MarekBot's profile commands. Use ```/profile help``` to see a list of profile commands.", True]})
-            await ctx.channel.send(embed = embedVar)
-
-# /coc
-@bot.command()
-async def coc(ctx, *args):
-    refUsers = db.reference("TODO_YOUR_FIREBASE_DIRECTORY")
-    if not args:
-        func.log(ctx, "coc")
-        try:
-            for key, value in refUsers.get().items():
-                if value["ID"] == str(ctx.author.id) and value["Clash of Clans ID"] != "None":
-                    user = _supercell_.user(value["Clash of Clans ID"])
-                    embedVar = func.getUserInfo(user)
-                    await ctx.channel.send(embed = embedVar)
-                    return
-            embedVar = func.embedFunction("Clash of Clans Error", " ", {f"{str(ctx.author)}": ["No Clash of Clans village added to your Discord profile. Add your village by typing: ```/coc add 2VRUUJYRO``` Choose your own village tag of course.", True]})
-            await ctx.channel.send(embed = embedVar)
-        except:
-            embedVar = func.embedFunction("Clash of Clans Error", " ", {f"{str(ctx.author)}": ["Error: Invalid village tag. Change your village by typing: ```/coc add 2VRUUJYRO``` Choose your own village tag of course.", True]})
-            await ctx.channel.send(embed = embedVar)
-
-    else:
-        if args[0] == "members":
-            try: tag = args[1]
-            except: tag = "2YGGPO9PO"
-            members = _supercell_.clan_info(tag)
-            embedVar = discord.Embed(title = members["name"], description="Members", color=0xbbb2e9)
-            embedVar.set_thumbnail(url=members["badgeUrls"]["small"])
-            for i in range(len(members["memberList"])):
-                name = members["memberList"][i]["name"]
-                role = members["memberList"][i]["role"]
-                trophies = members["memberList"][i]["trophies"]
-                embedVar.add_field(name=i+1, value=name, inline=True)
-                embedVar.add_field(name="Role", value=role, inline=True)
-                embedVar.add_field(name="Trophies", value=trophies, inline=True)
-                if i % 6 == 0 and i != 0:
-                    embedVar.set_footer(text = func.get_time("%d.%m.%Y %H:%M %Z"))
-                    await ctx.channel.send(embed=embedVar)
-                    embedVar = discord.Embed(title = members["name"], description="Members", color=0xbbb2e9)
-                elif i == len(members["memberList"])-1:
-                    embedVar.set_footer(text = func.get_time("%d.%m.%Y %H:%M %Z"))
-                    await ctx.channel.send(embed=embedVar)
-            func.log(ctx, "coc members")
-
-        elif args[0] == "cw":
-            try: tag = args[1]
-            except: tag = "2YGGPO9PO"
-            embedVar = func.coc_cw(tag)
-            await ctx.channel.send(embed=embedVar)
-            func.log(ctx, "coc cw")
-            
-        elif args[0] == "loot":
-            embedVar = discord.Embed(title = "Clash of Cocks Loot", description = "http://clashofclansforecaster.com/", color = 0xbbb2e9)
-            embedVar.set_thumbnail(url=stor.coc_img)
-            await ctx.channel.send(embed = embedVar)
-            func.log(ctx, "coc loot")
-
-        elif args[0] == "attacks":
-            try:
-                try: tag = args[1]
-                except: tag = "2YGGPO9PO"
-                war = _supercell_.cw_info(tag)
-                embedVar = discord.Embed(title = "Clan War Attacks", description = " ", color = 0xbbb2e9)
-                embedVar.set_thumbnail(url=war["clan"]["badgeUrls"]["small"])
-                for i in range(len(war["clan"]["members"])):
+                try:
+                    album = network.get_album(np[0], np[2])
+                except IndexError:
+                    album = network.get_album(np[0], np[1])
+                url = album.get_cover_image()
+                album = str(album).split(" - ")[1]
+                if url == None:
                     try:
-                        if len(war["clan"]["members"][i]["attacks"]) == 2: attacks_completed = "attack(s) completed: " + str("```yaml\n2```")
-                        else: attacks_completed = "attack(s) completed: " + str("```fix\n1```")
-                        embedVar.add_field(name = war["clan"]["members"][i]["name"], value = attacks_completed, inline = False)
-                    except(KeyError):
-                        attacks_completed = "attack(s) completed: " + str("```diff\n- member hasn't attacked yet.```")
-                        embedVar.add_field(name = war["clan"]["members"][i]["name"], value = attacks_completed, inline = False)
-                    if i % 15 == 0 and i != 0:
-                        embedVar.set_footer(text = func.get_time("%d.%m.%Y %H:%M %Z"))
-                        await ctx.channel.send(embed=embedVar)
-                        embedVar = discord.Embed(title = "Clan War Attacks", description = " ", color = 0xbbb2e9)
-                    elif i == len(war["clan"]["members"])-1:
-                        embedVar.set_footer(text = func.get_time("%d.%m.%Y %H:%M %Z"))
-                        await ctx.channel.send(embed = embedVar)
-                    func.log(ctx, "coc attacks")
-            except:
-                await ctx.channel.send("Clan currently not at war.")
-                
-        elif args[0] == "help":
-            embedVar = func.embedFunction("Clash of Clans Commands", " ", stor.cmds_coc, stor.coc_img)
-            await ctx.channel.send(embed = embedVar)
-            func.log(ctx, "coc help")
+                        album = network.get_album(np[0], np[1])
+                        url = album.get_cover_image()
+                    except:
+                        pass
 
-        elif args[0] == "add":
-            func.log(ctx, "coc add")
+            response_rgb = func.get_dominant_color(url)
+            embed_var = interactions.Embed(title=f"**{np[1]}**", description=" ", color=int(
+                f"0x{response_rgb['r']:X}{response_rgb['g']:X}{response_rgb['b']:X}", 16))
+            embed_var.set_author(
+                name=f"{ctx.user.username} - now playing", icon_url=user.get_image())
+            embed_var.set_thumbnail(url=url)
             try:
-                tag = args[1]
-                user = _supercell_.user(tag)
-                _ = user["name"]
+                embed_var.add_field(
+                    name=f"by {np[0]}", value=f"[on {album}]({album_url})", inline=True)
             except:
-                embedVar = func.embedFunction("Clash of Clans Error", " ", {f"{str(ctx.author)}": ["Invalid village tag. No village was added to your Discord profile.", True]})
-                await ctx.channel.send(embed = embedVar)
+                embed_var.add_field(
+                    name=f"by {np[0]}", value=f"on {album}", inline=True)
+            embed_var.set_footer(
+                text=f"{user} has {user.get_playcount()} scrobbles.")
+            extra_emoji = []
+            if np[0] == "Charli XCX":
+                for key, value in storage.charli_emojis.items():
+                    if key == album:
+                        extra_emoji.append(value)
+                extra_emoji.append("CharliXCX:938156838430597150")
+
+            if embed_var is None:
+                await msg.edit(embeds=func.get_embed("Issue with listening status", "Unfortunately, an unexpected problem occured while trying to get your listening status.", img=storage.spotify_img, footer="Report this issue via /feedback.", color=0x1DB954))
                 return
-            for key, value in refUsers.get().items():
-                if value["Name"] == str(ctx.author):
-                    refUsers.child(key).update({"Clash of Clans ID": tag})
-            embedVar = func.embedFunction("Clash of Clans console", " ", {f"{str(ctx.author)}": [f"Your village {str(user['name'])} has been added to your Discord profile.", True]})
-            await ctx.channel.send(embed = embedVar)
-        else:
-            embedVar = func.embedFunction("Clash of Clans Error", " ", {"Command not found": [f"{' '.join(args)} isn't one of MarekBot's Clash of Clans commands. Use ```/coc help``` to see a list of Spotify commands.", True]})
-            await ctx.channel.send(embed = embedVar)
+            emojis = ['\N{THUMBS UP SIGN}', '\N{THUMBS DOWN SIGN}']
+            if extra_emoji != []:
+                for emoji in extra_emoji:
+                    emojis.append(emoji)
+            await msg.edit(embeds=embed_var)
+            for emoji in emojis:
+                await asyncio.sleep(0.5)
+                await msg.create_reaction(emoji)
+            func.log(ctx, f"/np {np[1]} by {np[0]}", "medium")
+        except:
+            await ctx.send(embeds=func.get_embed("Issue with listening status", "Unfortunately, an unexpected problem occured while trying to get your listening status.", img=storage.spotify_img, footer="Report this issue via /feedback.", color=0x1DB954))
+    else:
+        await ctx.send(embeds=func.get_embed("No last.fm account added", "There seems to be no last.fm account associated with your Discord profile. Try '/lastfm add' to add your last.fm account.", color=0xbb0001))
+        func.log(ctx, f"/np DENIED no username", "medium")
 
-# /spotify
-@bot.command(name = 'spotify', aliases = ['Spotify', 'spotipy', 'Spotipy', 's', 'S'])
-async def spotify(ctx, cmd, *args):
-    # Spotify command handling
-    try:
-        if cmd == "collage":
-            try:
-                file, embedVar, filepath = func.spotify_cmds(ctx, cmd, *args)
-                await ctx.channel.send(file=file, embed = embedVar)
-                import os
-                os.remove(filepath)
-            except:
-                func.embedFunction("Spotify Error", " ", {"Command not found": [f"{cmd} isn't one of MarekBot's Spotify commands. Use ```/spotify help``` to see a list of Spotify commands.", True]})
-        else:
-            embedVar = func.spotify_cmds(ctx, cmd, *args)
-            await ctx.channel.send(embed = embedVar)
-
-    # User offline or other error
-    except:
-        embedVar = func.embedFunction("Spotify Error", "Common error: User offline or in locked listening session", img=stor.spotify_img, footer=func.get_time("%d.%m.%Y %H:%M %Z"))
-        await ctx.channel.send(embed = embedVar)
-    func.log(ctx, f"spotify {cmd}")
-
-# /np
-@bot.command(name = 'np', aliases = ['playing', 'nowplaying'])
-async def np(ctx):
-    refUsers = db.reference("TODO_YOUR_FIREBASE_DIRECTORY")
-    try:
-        for key, value in refUsers.get().items():
-            if value["ID"] == str(ctx.author.id) and value["lastfm"] != "None":
-                embedVar, extra_emoji = func.nowplaying(ctx, value["lastfm"])
-                if embedVar == None:
-                    await ctx.channel.send(embed = func.embedFunction("Now Playing Error", "User offline or in locked listening session", img=stor.spotify_img, footer=func.get_time("%d.%m.%Y %H:%M %Z")))
-                    return
-                emojis = ['\N{THUMBS UP SIGN}', '\N{THUMBS DOWN SIGN}']
-                if extra_emoji != None: emojis.append(extra_emoji)
-                message = await ctx.channel.send(embed = embedVar)
-                for emoji in emojis:
-                    await message.add_reaction(emoji)
-                return
-        embedVar = func.embedFunction("last.fm console", " ", {f"{str(ctx.author)}": ["No last.fm account added to your Discord profile. Add your account by typing: ```/profile lastfm xelemir``` Choose your own last.fm user name of course.", True]})
-        await ctx.channel.send(embed = embedVar)
-    except:
-        embedVar = func.embedFunction("last.fm console", " ", {f"{str(ctx.author)}": ["Error: Invalid last.fm user name.", True]})
-        await ctx.channel.send(embed = embedVar)
-    func.log(ctx, "np")
-    
-# /jkg
-@bot.command(name = 'jkg', aliases = ['JKG', 'Jkg', 'Marek', 'marek'])
-async def jkg(ctx, *args):
-    if args:
+# /jkg command to get a random jkg quote or search for a quote by keyword
+@client.command(name="jkg", description="Random JKG quote or search by keyword; special thanks to Anton.")
+@interactions.option(name="keyphrase", required=False)
+async def jkg(ctx: interactions.CommandContext, keyphrase: str = None):
+    if keyphrase:
+        func.log(ctx, f"/jkg {keyphrase}", "medium")
         try:
             quotes_name = {}
-            for quote, url in stor.jkg_quotes.items():
-                if ' '.join(args) in quote: quotes_name[quote] = url
+            for quote, url in storage.jkg_quotes.items():
+                if keyphrase in quote:
+                    quotes_name[quote] = url
             quote, url = random.choice(list(quotes_name.items()))
-            if func.jkg_filter(ctx,bot) == True and any(word in quote for word in stor.jkg_filter): return
-            func.log(ctx, "jkg " + ''.join(args))
+            if func.is_filter_on(ctx, client) == True and any(word in quote for word in storage.is_filter_on):
+                await ctx.send(embeds=func.get_embed(f"No matching quote found.", f'No jkg quote contains the phrase "{keyphrase}" you were searching for.', footer="If you believe this is an error, submit a ticket via /feedback."))
+                return
         except:
+            await ctx.send(embeds=func.get_embed(f"No matching quote found.", f'No jkg quote contains the phrase "{keyphrase}" you were searching for.', footer="If you believe this is an error, submit a ticket via /feedback."))
             return
     else:
+        func.log(ctx, f"/jkg", "medium")
         while True:
-            quote, url = random.choice(list(stor.jkg_quotes.items()))
-            if func.jkg_filter(ctx,bot) == True and any(word in quote for word in stor.jkg_filter): continue
+            quote, url = random.choice(list(storage.jkg_quotes.items()))
+            if func.is_filter_on(ctx, client) == True and any(word in quote for word in storage.is_filter_on):
+                continue
             break
-        func.log(ctx, "jkg")
 
-    embedVar = discord.Embed(title = "JKG Quote", description = quote, color = 0xbbb2e9)
-    if type(url) == list: embedVar.set_thumbnail(url = random.choice(url))
-    elif url != None: embedVar.set_thumbnail(url = url)
-    await ctx.channel.send(embed = embedVar)
+    embed_var = interactions.Embed(title="JKG Quote", description=quote, color=0xbbb2e9)
+    if type(url) == list:
+        embed_var.set_thumbnail(url=random.choice(url))
+    elif url is not None:
+        embed_var.set_thumbnail(url=url)
+    await ctx.send(embeds=embed_var)
 
-# /GeoGuesser
-@bot.command(name = 'GeoGuesser', aliases = ['g', 'geo'])
-async def GeoGuesser(ctx, *args):
-    rndm_country, capital = random.choice(list(stor.countries.items()))
+# /spotify
+@client.command()
+async def spotify(ctx: interactions.CommandContext):
+    """Base command for /spotify"""
+    pass
 
-    embedVar = discord.Embed(title = "Geo Guesser", description = " ", color = 0xbbb2e9)
-    embedVar.add_field(name = "Guess this country's capital:", value = rndm_country, inline = False)
-    await ctx.channel.send(embed = embedVar)
+# Play or pause function
+def playpause():
+    streaming = sp.current_playback(market=None, additional_types=None)
+    track_id = streaming["item"]["id"]
+    thumbnail = sp.track(track_id, market=None)["album"]["images"][2]["url"]
+    response_rgb = func.get_dominant_color(thumbnail)
+    if streaming["is_playing"]:
+        embed_var = interactions.Embed(title="Song paused:", description=" ", color=int(
+            f"0x{response_rgb['r']:X}{response_rgb['g']:X}{response_rgb['b']:X}", 16))
+        embed_var.set_thumbnail(url=thumbnail)
+        embed_var.add_field(
+            name=streaming["item"]["name"], value=streaming["item"]["album"]["artists"][0]["name"], inline=True)
+        sp.pause_playback()
+        return embed_var
 
-    def check(m):
-        if m.author == ctx.author and m.channel == ctx.channel:
-            return m.content
-    msg = await bot.wait_for("message", check=check)
-
-    if capital in msg.content:
-        judgement = "Yes, " + capital + " is the capital of " + rndm_country + "."
-        func.log(ctx, "capital", geoWon = 1)
     else:
-        judgement = "Nope, " + msg.content + " is not the capital of " + rndm_country + ". The correct answer is " + capital + "."
-        func.log(ctx, "capital", geoLost = 1)
+        embed_var = interactions.Embed(title="Song resumed:", description=" ", color=int(
+            f"0x{response_rgb['r']:X}{response_rgb['g']:X}{response_rgb['b']:X}", 16))
+        embed_var.set_thumbnail(url=thumbnail)
+        embed_var.add_field(
+            name=streaming["item"]["name"], value=streaming["item"]["album"]["artists"][0]["name"], inline=True)
+        sp.start_playback()
+        return embed_var
 
-    embedVarNew = discord.Embed(title = "Geo Guesser", description = judgement, color = 0xbbb2e9)
-    await ctx.channel.send(embed = embedVarNew)
+# /spotify play command to start or stop playback (Admin only)
+@spotify.subcommand(name="play", description="Start/resume Spotify playback (Admin only).")
+async def play(ctx: interactions.CommandContext):
+    if ctx.user.id in creds.admin_ids:
+        func.log(ctx, f"/spotify play", "low")
+        try:
+            embed_var = playpause()
+            await ctx.send(embeds=embed_var)
+        except:
+            await ctx.send(embeds=func.get_embed("Issue with Spotify", "Unfortunately, an unexpected problem occured while trying to start/pause your playback.", img=storage.locked_img, footer="Report this issue via /feedback.", color=0x1DB954))
+    else:
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+        func.log(ctx, f"/spotify play DENIED permission missing", "high")
 
-# General messages screening
-@bot.event
-async def on_message(ctx):
+# /spotify pause command to start or stop playback (same as /spotify play) (Admin only)
+@spotify.subcommand(name="pause", description="Pause Spotify playback (Admin only).")
+async def pause(ctx: interactions.CommandContext):
+    if ctx.user.id in creds.admin_ids:
+        func.log(ctx, f"/spotify pause", "low")
+        try:
+            embed_var = playpause()
+            await ctx.send(embeds=embed_var)
+        except:
+            await ctx.send(embeds=func.get_embed("Issue with Spotify", "Unfortunately, an unexpected problem occured while trying to start/pause your playback.", img=storage.locked_img, footer="Report this issue via /feedback.", color=0x1DB954))
+    else:
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+        func.log(ctx, f"/spotify pause DENIED permission missing", "high")
+
+# /spotify refresh command to refresh the spoti.py playlist (Admin only)
+@spotify.subcommand(name="refresh", description="Refresh spoti.py playlist (Admin only).")
+async def refresh(ctx: interactions.CommandContext):
+    if ctx.user.id in creds.admin_ids:
+        func.log(ctx, f"/spotify refreshed", "low")
+        try:
+            sys.path.insert(1, '/home/gruttefien/spotify')
+            import spoti
+            playlist_id = spoti.get_playlist_id()
+            playlist = sp.playlist(
+                playlist_id, fields=None, market=None, additional_types=('track', ))
+            thumbnail_url = playlist["images"][0]["url"]
+            spoti.refresh_playlist(playlist_id)
+            response_rgb = func.get_dominant_color(thumbnail_url)
+            embed_var = interactions.Embed(title="Playlist refreshed:", description="Playlist refreshed using Discord.", color=int(
+                f"0x{response_rgb['r']:X}{response_rgb['g']:X}{response_rgb['b']:X}", 16))
+            embed_var.set_thumbnail(url=thumbnail_url)
+            embed_var.add_field(
+                name=playlist["name"], value=playlist["owner"]["display_name"], inline=True)
+            await ctx.send(embeds=embed_var)
+        except:
+            await ctx.send(embeds=func.get_embed("Issue with Spotify", "Unfortunately, an unexpected problem occured while trying to refresh your playback.", img=storage.locked_img, footer="Report this issue via /feedback.", color=0x1DB954))
+    else:
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+        func.log(ctx, f"/spotify refresh DENIED permission missing", "high")
+
+# /spotify cover command to get full resolution Spotify album cover art
+@spotify.subcommand(name="cover", description="Get full resolution Spotify album cover art.")
+@interactions.option(name="url", description="Track URL")
+async def cover(ctx: interactions.CommandContext, url: str):
+    func.log(ctx, f"/spotify cover {url}", "medium")
     try:
-        if ctx.author.id == bot_id:
-            return
-
-        # Detect words in messages
-        elif any(word in ctx.content for word in stor.charliE):
-            await ctx.channel.send("It's Charli, without the E you dumb bitch.", tts = True)
-        elif any(word in ctx.content for word in stor.dababy):
-            await ctx.channel.send("Get in DaBed. TIME TO SEX.", tts = True)
-        elif any(word in ctx.content for word in stor.amogus):
-            await ctx.channel.send("sus")
-        elif any(word in ctx.content for word in stor.amongus):
-            await ctx.channel.send("Ich korrigiere, es heißt Amogus!")
-
-        # Filter words
-        if any(word in ctx.content for word in stor.filter_list):
-            func.log(ctx, f"Word violation ({ctx.content})")
-            await ctx.delete()
-            channel = await ctx.author.create_dm()
-            await channel.send(f"Your message in {ctx.channel} on {ctx.guild} contained a word which goes against this bot's code of conduct. Furthermore this incident (including the used words) was logged. Never do this again.")
-            response = f"Warning: {ctx.author.mention}. Do not use this word again."
-            msg_by_bot = await ctx.channel.send(response, tts = True)
-            await asyncio.sleep(10)
-            await msg_by_bot.delete()
-        await bot.process_commands(ctx)
+        track = sp.track(url, market=None)
+        response_rgb = func.get_dominant_color(
+            track["album"]["images"][1]["url"])
+        embed_var = interactions.Embed(title="Spotify Album Cover", description=" ", color=int(
+            f"0x{response_rgb['r']:X}{response_rgb['g']:X}{response_rgb['b']:X}", 16))
+        embed_var.set_thumbnail(url=storage.spotify_img)
+        embed_var.add_field(
+            name=track["name"], value=f'by {track["artists"][0]["name"]}', inline=True)
+        embed_var.set_image(url=track["album"]["images"][0]["url"])
+        await ctx.send(embeds=embed_var)
     except:
-        return
+        await ctx.send(embeds=func.get_embed("Invalid URL", "The supplied URL couldn't be identified as a Spotify album cover URL.", img=storage.spotify_img, footer="Report this issue via /feedback.", color=0x1DB954))
 
-bot.run(bot_token)
+# /spotify collage command to get a collage of Jan's top streamed tracks on Spotify
+@spotify.subcommand(name="collage", description="Get a collage of Jan's top streamed tracks on Spotify.")
+@interactions.option(
+    name="time_range",
+    description="Data from this time frame will be used.",
+    choices=[interactions.Choice(name="Last 4 weeks", value="short_term"), interactions.Choice(name="Last 6 months", value="medium_term"), interactions.Choice(name="Lifetime", value="long_term")])
+@interactions.option(
+    name="image_size",
+    description="The image will have this many cover images ^2.",
+    choices=[interactions.Choice(name="1", value=1), interactions.Choice(name="2", value=2), interactions.Choice(name="3", value=3), interactions.Choice(name="4", value=4), interactions.Choice(name="5", value=5), interactions.Choice(name="6", value=6), interactions.Choice(name="7", value=7)])
+async def collage(ctx: interactions.CommandContext, time_range: str, image_size: int):
+    msg = await ctx.send(embeds=func.get_embed("Spotify collage", "Creating collage...", color=0x1DB954))
+    func.log(ctx, f"/spotify collage", "medium")
+    new = Image.new("RGBA", (image_size*250, image_size*250))
+    top = sp.current_user_top_tracks(
+        image_size**2, offset=0, time_range=time_range)
+    list1 = [v["album"]["images"][1]["url"]
+             for i, v in enumerate(top["items"])]
+    offsetX, offsetY = 0, 0
+    for i, url in enumerate(list1):
+        img = Image.open(requests.get(url, stream=True).raw)
+        img = img.resize((250, 250))
+        new.paste(img, (0+offsetX, 0+offsetY))
+        offsetX += 250
+        if offsetX == image_size*250:
+            offsetY += 250
+            offsetX = 0
+    filepath = f"{func.get_time('%d%m%Y%H%M%S')}.png"
+    new.save(filepath, "PNG")
+    response_rgb = func.get_dominant_color(sp.current_user_top_tracks(
+        1, offset=0, time_range=time_range)["items"][0]["album"]["images"][1]["url"])
+
+    if time_range == "short_term":
+        time_range = "Last 4 weeks"
+    elif time_range == "medium_term":
+        time_range = "Last 6 months"
+    else:
+        time_range = "Lifetime"
+    embed_var = interactions.Embed(title="Top Songs", description=time_range, color=int(
+        f"0x{response_rgb['r']:X}{response_rgb['g']:X}{response_rgb['b']:X}", 16))
+    embed_var.set_footer(
+        text=f'Top songs collage for Jan\nhttps://open.spotify.com/user/n0c39jatc5pksdv4rhxizx2xy\nas of {func.get_time("%d-%m-%Y %H:%M:%S %Z")}')
+    await msg.edit(files=interactions.File(filename=filepath), embeds=embed_var)
+    os.remove(filepath)
+
+# /spotify follow command to follow an artist or user (Admin only) on Spotify
+@spotify.subcommand(name="follow", description="Follow an artist or user on Spotify and be notified about new releases.")
+@interactions.option(name="name", description="Artist name or profile ID.")
+@interactions.option(
+    name="type",
+    description="Specify the type.",
+    choices=[interactions.Choice(name="Artist", value="artist"), interactions.Choice(name="User", value="user")])
+async def follow(ctx: interactions.CommandContext, name: str, type: str):
+    if type == "artist":
+        func.log(ctx, f"/spotify follow {name}", "medium")
+        try:
+            artist = sp.search(name, limit=1, offset=0, type='artist', market=None)[
+                "artists"]["items"][0]
+        except IndexError:
+            await ctx.send(embeds=func.get_embed("Artist not found", f"The artist {name} could not be found on Spotify.", img=storage.spotify_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+            return
+        resp = func.readSQL(
+            f"""SELECT id FROM following WHERE id = '{artist['id']}'""")
+        if len(resp) == 0:
+            func.writeSQL(
+                f"""INSERT INTO following(id, name, addedby, type) VALUES("{artist['id']}", "{artist['name']}", "{ctx.author}", "spotify_artist")""")
+            await ctx.send(embeds=func.get_embed(f"\N{MUSICAL NOTE}  Now following {artist['name']}  \N{MUSICAL NOTE}", f"Server will be notified whenever {artist['name']} drops new music.", img=artist["images"][0]["url"], color=0x1DB954))
+        else:
+            await ctx.send(embeds=func.get_embed(f"\N{MUSICAL NOTE}  Already following {artist['name']}  \N{MUSICAL NOTE}", f"Server will be notified whenever {artist['name']} drops new music.", img=artist["images"][0]["url"], color=0x1DB954))
+    elif type == "user":
+        if ctx.user.id not in creds.admin_ids:
+            await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+            func.log(
+                ctx, f"/spotify follow {name} DENIED permission missing", "high")
+        else:
+            func.log(ctx, f"/spotify follow {name}", "medium")
+            try:
+                user = sp.user(name)
+                try:
+                    image = user["images"][0]["url"]
+                except:
+                    image = "https://storage.googleapis.com/pr-newsroom-wp/1/2018/11/Spotify_Logo_RGB_Green.png"
+                resp = func.readSQL(
+                    f"""SELECT id FROM following WHERE id = '{user['id']}'""")
+                if len(resp) == 0:
+                    func. writeSQL(
+                        f"""INSERT INTO following(id, name, addedby, type) VALUES("{user['id']}", "{user['display_name']}", "{ctx.author}", "spotify_user")""")
+                    await ctx.send(embeds=func.get_embed(f"\N{MUSICAL NOTE}  Now following {user['display_name']}  \N{MUSICAL NOTE}", f"You will be notified whenever {user['display_name']} creates new public playlists.", img=image, color=0x1DB954))
+                else:
+                    await ctx.send(embeds=func.get_embed(f"\N{MUSICAL NOTE}  Already following {user['display_name']}  \N{MUSICAL NOTE}", f"You will be notified whenever {user['display_name']} creates new public playlists.", img=image, color=0x1DB954))
+            except:
+                await ctx.send(embeds=func.get_embed("Issue with Spotify", "Unfortunately, an unexpected problem occured while trying to follow user.", img=storage.spotify_img, footer="Report this issue via /feedback.", color=0x1DB954))
+
+# /spotify unfollow command to unfollow an artist or user on Spotify (Admin only)
+@spotify.subcommand(name="unfollow", description="Unfollow an artist or user on Spotify (Admin only).")
+@interactions.option(name="name", description="Artist name or profile ID.")
+async def unfollow(ctx: interactions.CommandContext, name: str):
+    if ctx.user.id not in creds.admin_ids:
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+        func.log(
+            ctx, f"/spotify unfollow {name} DENIED permission missing", "high")
+    else:
+        func.log(ctx, f"/spotify unfollow {name}", "medium")
+        resp = func.readSQL(
+            f"""SELECT id, name FROM following WHERE name = '{name}' OR id = '{name}'""")
+        if len(resp) != 0:
+            func.writeSQL(
+                f"""DELETE FROM following WHERE name = '{name}' OR id = '{name}'""")
+            await ctx.send(embeds=func.get_embed(f"Unfollowed {resp[0][1]}", f"You will not be notified anymore about {resp[0][1]}'s Spotify activity.", img=storage.spotify_img, color=0x1DB954))
+        else:
+            await ctx.send(embeds=func.get_embed(f"Not following {resp[0][1]}", f"{resp[0][1]} is not in the database. Therefore, you would not have been notified about their Spotify activity anyways.", img=storage.spotify_img, color=0x1DB954))
+
+# /spotify following command to list followed artists and users (Admin only)
+@spotify.subcommand(name="following", description="List of followed artists and users (Admin only).")
+async def following(ctx: interactions.CommandContext):
+    if ctx.user.id not in creds.admin_ids:
+        await ctx.send(embeds=func.get_embed("Missing permission", "You do not have the permission to use this command. Your attempt was logged.", img=storage.locked_img, footer="If you believe this is an error, submit a ticket via /feedback.", color=0x1DB954))
+        func.log(ctx, f"/spotify following DENIED permission missing", "high")
+    else:
+        func.log(ctx, f"/spotify following", "medium")
+        resp = func.readSQL(f"""SELECT id, name FROM following""")
+        if len(resp) != 0:
+            following_str = ""
+            for name in resp:
+                following_str += f"{name[0]} {name[1]}\n"
+            await ctx.send(embeds=func.get_embed(f"Following", f"You will be notified about these artists and users:\n\n{following_str}", img=storage.spotify_img, color=0x1DB954))
+        else:
+            await ctx.send(embeds=func.get_embed(f"Not following anyone", f"The database is empty. As this bot is not following anyone, you will not be notified about anyone's Spotify activity.", img=storage.spotify_img, color=0x1DB954))
+
+
+loop = asyncio.get_event_loop()
+
+task2 = loop.create_task(dpy.start(token=creds.bot_token))
+task1 = loop.create_task(client._ready())
+
+gathered = asyncio.gather(task1, task2)
+loop.run_until_complete(gathered)

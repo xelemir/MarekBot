@@ -1,60 +1,40 @@
 # MarekBot
 
 <br>
-Discord bot with Spotify, Clash of Clans, Last.fm and Google Firebase integration.<br>
-The core feature is a random quote generator with e.g. school quotes.<br>
+Discord bot with Spotify, Last.fm and integration.<br>
+The core feature is a random quote generator with school quotes.<br>
 <br>
 <hr>
 
-# General commands:<br>
-- ```/marekhelp``` List of available commands<br>
-- ```/jkg``` Random JKG quote
-- ```/jkg [search query]``` Searches for specific JKG quote
-- ```/system``` Info on bot's host machine
-- ```/GoogleCloud``` See logfile entries (file lies on gcp instance for me)
-- ```/feedback``` Sends bot admin a dm
-- ```/np``` Now playing feature using last.fm
-- ```/GeoGuesser``` Guess the capital of a given country
-- ```/coc help``` List of Clash of Clans commands
-- ```/spotify help``` List of Spotify commands
-- ```/profile help``` List of user profile commands
-- ```/coc help``` List of available Clash of Clans commands
+# Public commands:<br>
+- ```/help``` List of all available commands.
+- ```/jkg [search phrase]``` Random JKG quote or search by keyword; special thanks to Anton.
+- ```/system``` Get info on the bot's host computer.
+- ```/feedback [your message]``` Contact this bot's developer.
+- ```/lastfm add [last.fm username]``` Connect your last.fm account with your Discord profile.
+- ```/lastfm disconnect``` Disconnect your last.fm username from your Discord profile.
+- ```/np``` Display streaming activity on Spotify. (Or elsewhere - last.fm must be connected).
+- ```/spotify cover [Spotify album URL]``` Get full resolution Spotify album cover art.
+- ```/spotify collage [time range] [image size]``` Get a collage of Jan's top streamed tracks on Spotify.
+- ```/spotify follow [name] [Artist]``` Follow an artist on Spotify and be notified about new releases.
 <br>
 
-# Spotify commands:<br>
-- ```/spotify help``` List of Spotify commands
-- ```/spotify play``` Play/pause current song
-- ```/spotify pause``` Play/pause current song (play and pause are interchangeable)
-- ```/spotify skip``` Skip current song
-- ```/spotify collage [side length] [time period]``` Top songs collage for signed in user
-- ```/spotify cover [Spotify song URL or ID]``` Get full res album cover of given spotify song url
-<br>
-
-# Clash of Clans commands:<br>
-- ```/coc help``` List of available Clash of Clans commands
-- ```/coc members``` List of clan members + roles + trophies
-- ```/coc cw``` Info on clan's current war
-- ```/coc attacks``` List of clan war members and their completed attacks
-- ```/coc add [coc village tag]``` Adds village to profile (Google Firebase)
-<br>
-
-# User profile commands:<br>
-Note: Google Firebase "Realtime Database" is used to link users' discord ids with other apps like last.fm username or coc village tag
-- ```/profile help``` List of user profile commands
-- ```/profile lastfm [last.fm name]``` Add last.fm user to Discord profile
-- ```/profile geo``` See your GeoGuesser stats
-- ```/profile delete data``` Deletes collected profile data for user
-<br>
-
-# Other:<br>
-- Bot responds to keywords such as AmongUs, Amogus or Charlie (It's obviously spelled Charli without the E)
-- Bot deletes unwanted phrases in the server's chat
+# Admin only commands:<br>
+- ```/logs``` See log files from this bot's MySQL database.
+- ```/feedback reply [channel id] [your message]``` Reply to a /feedback ticket.
+- ```/spotify play``` Start/resume Spotify playback.
+- ```/spotify pause``` Pause Spotify playback.
+- ```/spotify refresh``` Refresh spoti.py playlist.
+- ```/spotify follow [user id] [User]``` Follow a user on Spotify and be notified about new playlists.
+- ```/spotify unfollow [name or id]``` Unfollow an artist or user on Spotify.
+- ```/spotify following``` List of followed artists and users.
 <br>
 
 # Things to do before running the bot:<br>
-- Change all TODO objects
-- pip install used libraries
-- Spotify API, last.fm API, imagga API, Clash of Clans API and Google Firebase accounts required
+- pip install all required libaraies
+- Change all credentials in creds.py
+- Change the links in storage.py
+
 <br>
 
 # Screenshots:<br>
